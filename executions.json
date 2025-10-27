@@ -1,0 +1,22 @@
+{
+    "flows": {
+        "flow-1761566127638-rb786": {
+            "completed": []
+        },
+        "flow-1761566170786-fnqvf": {
+            "completed": {
+                "evi-1761566170786-sgu1r": true,
+                "evi-1761566170786-qqyvb": false
+            }
+        },
+        "flow-1761566224965-jvv37": {
+            "completed": []
+        },
+        "flow-1761566347220-nw014": {
+            "completed": {
+                "evi-1753120000042-fghij": true,
+                "evi-1753120000041-abcde": true
+            }
+        }
+    }
+}

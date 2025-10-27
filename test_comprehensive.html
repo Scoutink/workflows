@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Workflow Test Suite</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .test-container { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-title { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; margin-bottom: 15px; }
+        .test-section { margin: 15px 0; padding: 10px; background: #f8f9fa; border-left: 4px solid #007acc; }
+        .test-result { margin: 10px 0; padding: 8px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .test-button { background: #007acc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .test-button:hover { background: #0056b3; }
+        .test-data { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .flow-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 10px 0; }
+        .flow-data { background: #f8f9fa; padding: 10px; border-radius: 4px; }
+        .flow-title { font-weight: bold; color: #007acc; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Comprehensive Workflow Test Suite</h1>
+    <p>This test suite verifies all the fixes for the copy-clone-share dynamics, execution synchronization, structure synchronization, parent lookup, and tag autocomplete features.</p>
+
+    <div class="test-container">
+        <h2 class="test-title">Test Controls</h2>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+        <button class="test-button" onclick="runSharedFlowTests()">Test Shared Flow Data Inheritance</button>
+        <button class="test-button" onclick="runExecutionSyncTests()">Test Execution Synchronization</button>
+        <button class="test-button" onclick="runStructureSyncTests()">Test Structure Synchronization</button>
+        <button class="test-button" onclick="runParentLookupTests()">Test Parent Lookup</button>
+        <button class="test-button" onclick="runTagAutocompleteTests()">Test Tag Autocomplete</button>
+        <button class="test-button" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <script>
+        // Mock workflow data for testing
+        const mockWorkflow = {
+            settings: { enforceSequence: true },
+            flows: [
+                {
+                    id: 'flow-1',
+                    name: 'Flow A',
+                    data: [
+                        {
+                            id: 'ctl-1',
+                            name: 'Control 1',
+                            text: 'Control 1 description',
+                            tags: ['security', 'compliance'],
+                            shareKey: 'shared-ctl-1',
+                            subcategories: [
+                                {
+                                    id: 'act-1',
+                                    name: 'Action 1',
+                                    text: 'Action 1 description',
+                                    tags: ['implementation'],
+                                    shareKey: 'shared-act-1',
+                                    subcategories: [
+                                        {
+                                            id: 'evi-1',
+                                            name: 'Evidence 1',
+                                            text: 'Evidence 1 description',
+                                            tags: ['documentation'],
+                                            shareKey: 'shared-evi-1',
+                                            grade: 2.0,
+                                            completed: false,
+                                            footer: { links: [], images: [], notes: [], comments: [] }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'flow-2',
+                    name: 'Flow B',
+                    data: [
+                        {
+                            id: 'ctl-2',
+                            name: 'Control 1',
+                            text: 'Control 1 description',
+                            tags: ['security', 'compliance'],
+                            shareKey: 'shared-ctl-1',
+                            subcategories: [
+                                {
+                                    id: 'act-2',
+                                    name: 'Action 1',
+                                    text: 'Action 1 description',
+                                    tags: ['implementation'],
+                                    shareKey: 'shared-act-1',
+                                    subcategories: [
+                                        {
+                                            id: 'evi-2',
+                                            name: 'Evidence 1',
+                                            text: 'Evidence 1 description',
+                                            tags: ['documentation'],
+                                            shareKey: 'shared-evi-1',
+                                            grade: 2.0,
+                                            completed: false,
+                                            footer: { links: [], images: [], notes: [], comments: [] }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        const mockExecutions = {
+            flows: {
+                'flow-1': { completed: { 'evi-1': true } },
+                'flow-2': { completed: { 'evi-2': false } }
+            }
+        };
+
+        // Test helper functions
+        function addTestResult(title, status, message, data = null) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${status}`;
+            
+            let content = `<strong>${title}</strong>: ${message}`;
+            if (data) {
+                content += `<div class="test-data">${JSON.stringify(data, null, 2)}</div>`;
+            }
+            
+            resultDiv.innerHTML = content;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Test 1: Shared Flow Data Inheritance
+        function testSharedFlowDataInheritance() {
+            addTestResult('Shared Flow Data Inheritance', 'info', 'Testing if shared nodes inherit data changes...');
+            
+            try {
+                // Simulate editing a shared control in Flow A
+                const flowA = mockWorkflow.flows[0];
+                const controlA = flowA.data[0];
+                controlA.name = 'Updated Control 1';
+                controlA.text = 'Updated Control 1 description';
+                controlA.tags = ['security', 'compliance', 'updated'];
+                
+                // Check if Flow B's corresponding control was updated
+                const flowB = mockWorkflow.flows[1];
+                const controlB = flowB.data[0];
+                
+                if (controlB.shareKey === controlA.shareKey) {
+                    if (controlB.name === controlA.name && 
+                        controlB.text === controlA.text && 
+                        JSON.stringify(controlB.tags) === JSON.stringify(controlA.tags)) {
+                        addTestResult('Shared Flow Data Inheritance', 'pass', 'SUCCESS: Shared control data synchronized correctly');
+                        return true;
+                    } else {
+                        addTestResult('Shared Flow Data Inheritance', 'fail', 'FAIL: Shared control data not synchronized', {
+                            expected: { name: controlA.name, text: controlA.text, tags: controlA.tags },
+                            actual: { name: controlB.name, text: controlB.text, tags: controlB.tags }
+                        });
+                        return false;
+                    }
+                } else {
+                    addTestResult('Shared Flow Data Inheritance', 'fail', 'FAIL: ShareKey mismatch');
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Shared Flow Data Inheritance', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 2: Execution Synchronization
+        function testExecutionSynchronization() {
+            addTestResult('Execution Synchronization', 'info', 'Testing if execution changes sync across shared evidence...');
+            
+            try {
+                // Simulate completing evidence in Flow A
+                const flowA = mockWorkflow.flows[0];
+                const evidenceA = flowA.data[0].subcategories[0].subcategories[0];
+                mockExecutions.flows['flow-1'].completed[evidenceA.id] = true;
+                
+                // Check if Flow B's corresponding evidence was also marked complete
+                const flowB = mockWorkflow.flows[1];
+                const evidenceB = flowB.data[0].subcategories[0].subcategories[0];
+                
+                if (evidenceB.shareKey === evidenceA.shareKey) {
+                    // In a real implementation, this would be handled by propagateSharedExecution
+                    const flowBCompleted = mockExecutions.flows['flow-2'].completed[evidenceB.id];
+                    
+                    if (flowBCompleted === true) {
+                        addTestResult('Execution Synchronization', 'pass', 'SUCCESS: Execution status synchronized across flows');
+                        return true;
+                    } else {
+                        addTestResult('Execution Synchronization', 'fail', 'FAIL: Execution status not synchronized', {
+                            flowA: mockExecutions.flows['flow-1'].completed,
+                            flowB: mockExecutions.flows['flow-2'].completed
+                        });
+                        return false;
+                    }
+                } else {
+                    addTestResult('Execution Synchronization', 'fail', 'FAIL: ShareKey mismatch for evidence');
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Execution Synchronization', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 3: Structure Synchronization
+        function testStructureSynchronization() {
+            addTestResult('Structure Synchronization', 'info', 'Testing if new elements added to shared items appear in other flows...');
+            
+            try {
+                // Simulate adding a new evidence item to a shared action in Flow A
+                const flowA = mockWorkflow.flows[0];
+                const actionA = flowA.data[0].subcategories[0];
+                const newEvidence = {
+                    id: 'evi-3',
+                    name: 'New Evidence',
+                    text: 'New evidence description',
+                    tags: ['new'],
+                    grade: 1.5,
+                    completed: false,
+                    footer: { links: [], images: [], notes: [], comments: [] }
+                };
+                actionA.subcategories.push(newEvidence);
+                
+                // Check if Flow B's corresponding action also has the new evidence
+                const flowB = mockWorkflow.flows[1];
+                const actionB = flowB.data[0].subcategories[0];
+                
+                if (actionB.shareKey === actionA.shareKey) {
+                    // In a real implementation, this would be handled by propagateSharedAdd
+                    const hasNewEvidence = actionB.subcategories.some(ev => ev.name === 'New Evidence');
+                    
+                    if (hasNewEvidence) {
+                        addTestResult('Structure Synchronization', 'pass', 'SUCCESS: New evidence propagated to shared action');
+                        return true;
+                    } else {
+                        addTestResult('Structure Synchronization', 'fail', 'FAIL: New evidence not propagated to shared action', {
+                            flowAActions: actionA.subcategories.map(a => a.name),
+                            flowBActions: actionB.subcategories.map(a => a.name)
+                        });
+                        return false;
+                    }
+                } else {
+                    addTestResult('Structure Synchronization', 'fail', 'FAIL: ShareKey mismatch for actions');
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Structure Synchronization', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 4: Parent Lookup
+        function testParentLookup() {
+            addTestResult('Parent Lookup', 'info', 'Testing if parent lookup works correctly for shared items...');
+            
+            try {
+                // Simulate finding a control by shareKey
+                const targetFlow = mockWorkflow.flows[1];
+                const sourceControl = mockWorkflow.flows[0].data[0];
+                
+                // Test findControlIn function logic
+                const foundControl = targetFlow.data.find(c => c.shareKey === sourceControl.shareKey);
+                
+                if (foundControl && foundControl.shareKey === sourceControl.shareKey) {
+                    addTestResult('Parent Lookup', 'pass', 'SUCCESS: Parent control found by shareKey');
+                    
+                    // Test finding action within the control
+                    const sourceAction = sourceControl.subcategories[0];
+                    const foundAction = foundControl.subcategories.find(a => a.shareKey === sourceAction.shareKey);
+                    
+                    if (foundAction && foundAction.shareKey === sourceAction.shareKey) {
+                        addTestResult('Parent Lookup', 'pass', 'SUCCESS: Parent action found by shareKey');
+                        return true;
+                    } else {
+                        addTestResult('Parent Lookup', 'fail', 'FAIL: Parent action not found by shareKey');
+                        return false;
+                    }
+                } else {
+                    addTestResult('Parent Lookup', 'fail', 'FAIL: Parent control not found by shareKey');
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Parent Lookup', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 5: Tag Autocomplete
+        function testTagAutocomplete() {
+            addTestResult('Tag Autocomplete', 'info', 'Testing tag autocomplete functionality...');
+            
+            try {
+                // Collect all unique tags from the workflow
+                const allTags = new Set();
+                mockWorkflow.flows.forEach(flow => {
+                    (flow.data || []).forEach(ctl => {
+                        (ctl.tags || []).forEach(tag => allTags.add(tag));
+                        (ctl.subcategories || []).forEach(act => {
+                            (act.tags || []).forEach(tag => allTags.add(tag));
+                            (act.subcategories || []).forEach(ev => {
+                                (ev.tags || []).forEach(tag => allTags.add(tag));
+                            });
+                        });
+                    });
+                });
+                
+                const uniqueTags = Array.from(allTags).sort();
+                const expectedTags = ['compliance', 'documentation', 'implementation', 'new', 'security', 'updated'];
+                
+                if (JSON.stringify(uniqueTags) === JSON.stringify(expectedTags)) {
+                    addTestResult('Tag Autocomplete', 'pass', 'SUCCESS: All unique tags collected correctly', { tags: uniqueTags });
+                    return true;
+                } else {
+                    addTestResult('Tag Autocomplete', 'fail', 'FAIL: Tag collection mismatch', {
+                        expected: expectedTags,
+                        actual: uniqueTags
+                    });
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Tag Autocomplete', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 6: ShareKey Assignment
+        function testShareKeyAssignment() {
+            addTestResult('ShareKey Assignment', 'info', 'Testing if shareKeys are properly assigned and maintained...');
+            
+            try {
+                let allShareKeysValid = true;
+                const shareKeyMap = new Map();
+                
+                mockWorkflow.flows.forEach(flow => {
+                    (flow.data || []).forEach(ctl => {
+                        if (ctl.shareKey) {
+                            if (shareKeyMap.has(ctl.shareKey)) {
+                                shareKeyMap.get(ctl.shareKey).push(`Control: ${ctl.name} in ${flow.name}`);
+                            } else {
+                                shareKeyMap.set(ctl.shareKey, [`Control: ${ctl.name} in ${flow.name}`]);
+                            }
+                        }
+                        
+                        (ctl.subcategories || []).forEach(act => {
+                            if (act.shareKey) {
+                                if (shareKeyMap.has(act.shareKey)) {
+                                    shareKeyMap.get(act.shareKey).push(`Action: ${act.name} in ${flow.name}`);
+                                } else {
+                                    shareKeyMap.set(act.shareKey, [`Action: ${act.name} in ${flow.name}`]);
+                                }
+                            }
+                            
+                            (act.subcategories || []).forEach(ev => {
+                                if (ev.shareKey) {
+                                    if (shareKeyMap.has(ev.shareKey)) {
+                                        shareKeyMap.get(ev.shareKey).push(`Evidence: ${ev.name} in ${flow.name}`);
+                                    } else {
+                                        shareKeyMap.set(ev.shareKey, [`Evidence: ${ev.name} in ${flow.name}`]);
+                                    }
+                                }
+                            });
+                        });
+                    });
+                });
+                
+                // Check if shared items have the same shareKey
+                for (const [shareKey, items] of shareKeyMap) {
+                    if (items.length > 1) {
+                        addTestResult('ShareKey Assignment', 'pass', `SUCCESS: ShareKey '${shareKey}' shared by: ${items.join(', ')}`);
+                    } else {
+                        addTestResult('ShareKey Assignment', 'info', `INFO: ShareKey '${shareKey}' used by single item: ${items[0]}`);
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                addTestResult('ShareKey Assignment', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 7: Data Integrity
+        function testDataIntegrity() {
+            addTestResult('Data Integrity', 'info', 'Testing data integrity and consistency...');
+            
+            try {
+                let integrityIssues = [];
+                
+                // Check for duplicate IDs within flows
+                mockWorkflow.flows.forEach(flow => {
+                    const ids = new Set();
+                    const checkIds = (node, path) => {
+                        if (ids.has(node.id)) {
+                            integrityIssues.push(`Duplicate ID '${node.id}' found at ${path}`);
+                        }
+                        ids.add(node.id);
+                        
+                        if (node.subcategories) {
+                            node.subcategories.forEach((sub, index) => {
+                                checkIds(sub, `${path}.subcategories[${index}]`);
+                            });
+                        }
+                    };
+                    
+                    flow.data.forEach((ctl, index) => {
+                        checkIds(ctl, `flow.${flow.name}.data[${index}]`);
+                    });
+                });
+                
+                // Check for missing required properties
+                mockWorkflow.flows.forEach(flow => {
+                    (flow.data || []).forEach(ctl => {
+                        if (!ctl.id || !ctl.name) {
+                            integrityIssues.push(`Control missing required properties: ${JSON.stringify(ctl)}`);
+                        }
+                        
+                        (ctl.subcategories || []).forEach(act => {
+                            if (!act.id || !act.name) {
+                                integrityIssues.push(`Action missing required properties: ${JSON.stringify(act)}`);
+                            }
+                            
+                            (act.subcategories || []).forEach(ev => {
+                                if (!ev.id || !ev.name) {
+                                    integrityIssues.push(`Evidence missing required properties: ${JSON.stringify(ev)}`);
+                                }
+                            });
+                        });
+                    });
+                });
+                
+                if (integrityIssues.length === 0) {
+                    addTestResult('Data Integrity', 'pass', 'SUCCESS: No data integrity issues found');
+                    return true;
+                } else {
+                    addTestResult('Data Integrity', 'fail', 'FAIL: Data integrity issues found', integrityIssues);
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Data Integrity', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test 8: Flow Comparison
+        function testFlowComparison() {
+            addTestResult('Flow Comparison', 'info', 'Comparing Flow A and Flow B for shared item consistency...');
+            
+            try {
+                const flowA = mockWorkflow.flows[0];
+                const flowB = mockWorkflow.flows[1];
+                
+                // Compare shared controls
+                const controlA = flowA.data[0];
+                const controlB = flowB.data[0];
+                
+                const comparison = {
+                    flowA: {
+                        name: flowA.name,
+                        controlCount: flowA.data.length,
+                        controlName: controlA.name,
+                        controlShareKey: controlA.shareKey,
+                        actionCount: controlA.subcategories.length,
+                        actionName: controlA.subcategories[0].name,
+                        actionShareKey: controlA.subcategories[0].shareKey,
+                        evidenceCount: controlA.subcategories[0].subcategories.length,
+                        evidenceName: controlA.subcategories[0].subcategories[0].name,
+                        evidenceShareKey: controlA.subcategories[0].subcategories[0].shareKey
+                    },
+                    flowB: {
+                        name: flowB.name,
+                        controlCount: flowB.data.length,
+                        controlName: controlB.name,
+                        controlShareKey: controlB.shareKey,
+                        actionCount: controlB.subcategories.length,
+                        actionName: controlB.subcategories[0].name,
+                        actionShareKey: controlB.subcategories[0].shareKey,
+                        evidenceCount: controlB.subcategories[0].subcategories.length,
+                        evidenceName: controlB.subcategories[0].subcategories[0].name,
+                        evidenceShareKey: controlB.subcategories[0].subcategories[0].shareKey
+                    }
+                };
+                
+                // Check if shareKeys match
+                const shareKeysMatch = controlA.shareKey === controlB.shareKey &&
+                                    controlA.subcategories[0].shareKey === controlB.subcategories[0].shareKey &&
+                                    controlA.subcategories[0].subcategories[0].shareKey === controlB.subcategories[0].subcategories[0].shareKey;
+                
+                if (shareKeysMatch) {
+                    addTestResult('Flow Comparison', 'pass', 'SUCCESS: ShareKeys match between flows', comparison);
+                    return true;
+                } else {
+                    addTestResult('Flow Comparison', 'fail', 'FAIL: ShareKeys do not match between flows', comparison);
+                    return false;
+                }
+            } catch (error) {
+                addTestResult('Flow Comparison', 'fail', `ERROR: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Test runner functions
+        function runSharedFlowTests() {
+            clearResults();
+            addTestResult('Test Suite', 'info', 'Running Shared Flow Data Inheritance Tests...');
+            testSharedFlowDataInheritance();
+            testShareKeyAssignment();
+            testFlowComparison();
+        }
+
+        function runExecutionSyncTests() {
+            clearResults();
+            addTestResult('Test Suite', 'info', 'Running Execution Synchronization Tests...');
+            testExecutionSynchronization();
+            testDataIntegrity();
+        }
+
+        function runStructureSyncTests() {
+            clearResults();
+            addTestResult('Test Suite', 'info', 'Running Structure Synchronization Tests...');
+            testStructureSynchronization();
+            testShareKeyAssignment();
+        }
+
+        function runParentLookupTests() {
+            clearResults();
+            addTestResult('Test Suite', 'info', 'Running Parent Lookup Tests...');
+            testParentLookup();
+            testDataIntegrity();
+        }
+
+        function runTagAutocompleteTests() {
+            clearResults();
+            addTestResult('Test Suite', 'info', 'Running Tag Autocomplete Tests...');
+            testTagAutocomplete();
+            testDataIntegrity();
+        }
+
+        function runAllTests() {
+            clearResults();
+            addTestResult('Test Suite', 'info', 'Running All Tests...');
+            
+            const tests = [
+                testSharedFlowDataInheritance,
+                testExecutionSynchronization,
+                testStructureSynchronization,
+                testParentLookup,
+                testTagAutocomplete,
+                testShareKeyAssignment,
+                testDataIntegrity,
+                testFlowComparison
+            ];
+            
+            let passed = 0;
+            let total = tests.length;
+            
+            tests.forEach(test => {
+                if (test()) {
+                    passed++;
+                }
+            });
+            
+            addTestResult('Test Summary', passed === total ? 'pass' : 'fail', 
+                `Tests completed: ${passed}/${total} passed`);
+        }
+
+        // Initialize the test suite
+        document.addEventListener('DOMContentLoaded', () => {
+            addTestResult('Test Suite', 'info', 'Test suite loaded and ready. Click "Run All Tests" to begin.');
+        });
+    </script>
+</body>
+</html>

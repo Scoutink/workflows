@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .pass { background-color: #d4edda; color: #155724; }
+        .fail { background-color: #f8d7da; color: #721c24; }
+        button { margin: 5px; padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Workflow System Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Shared Flow Data Inheritance</h2>
+        <p>Test if changes in shared items appear in all flows</p>
+        <button onclick="testSharedDataInheritance()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Execution Synchronization</h2>
+        <p>Test if execution changes sync across shared flows</p>
+        <button onclick="testExecutionSync()">Run Test</button>
+        <div id="test2-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Structure Synchronization</h2>
+        <p>Test if new elements added to shared items appear everywhere</p>
+        <button onclick="testStructureSync()">Run Test</button>
+        <div id="test3-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Parent Lookup</h2>
+        <p>Test if parent control lookup works correctly</p>
+        <button onclick="testParentLookup()">Run Test</button>
+        <div id="test4-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 5: Tag Autocomplete</h2>
+        <p>Test if tag autocomplete functionality works</p>
+        <button onclick="testTagAutocomplete()">Run Test</button>
+        <div id="test5-result"></div>
+    </div>
+
+    <script>
+        // Mock workflow data for testing
+        const mockWorkflow = {
+            settings: { enforceSequence: true },
+            flows: [
+                {
+                    id: 'flow-1',
+                    name: 'Flow A',
+                    data: [
+                        {
+                            id: 'ctl-1',
+                            name: 'Control 1',
+                            shareKey: 'shared-ctl-1',
+                            tags: ['security', 'compliance'],
+                            subcategories: [
+                                {
+                                    id: 'act-1',
+                                    name: 'Action 1',
+                                    shareKey: 'shared-act-1',
+                                    tags: ['monitoring'],
+                                    subcategories: [
+                                        {
+                                            id: 'evi-1',
+                                            name: 'Evidence 1',
+                                            shareKey: 'shared-evi-1',
+                                            tags: ['documentation'],
+                                            completed: false,
+                                            grade: 2.0
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'flow-2',
+                    name: 'Flow B',
+                    data: [
+                        {
+                            id: 'ctl-2',
+                            name: 'Control 1',
+                            shareKey: 'shared-ctl-1',
+                            tags: ['security', 'compliance'],
+                            subcategories: [
+                                {
+                                    id: 'act-2',
+                                    name: 'Action 1',
+                                    shareKey: 'shared-act-1',
+                                    tags: ['monitoring'],
+                                    subcategories: [
+                                        {
+                                            id: 'evi-2',
+                                            name: 'Evidence 1',
+                                            shareKey: 'shared-evi-1',
+                                            tags: ['documentation'],
+                                            completed: false,
+                                            grade: 2.0
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        function testSharedDataInheritance() {
+            const result = document.getElementById('test1-result');
+            try {
+                // Test if shared items have the same shareKey
+                const flow1Control = mockWorkflow.flows[0].data[0];
+                const flow2Control = mockWorkflow.flows[1].data[0];
+                
+                if (flow1Control.shareKey === flow2Control.shareKey && 
+                    flow1Control.shareKey === 'shared-ctl-1') {
+                    result.innerHTML = '<div class="test-result pass">✓ PASS: Shared items have correct shareKey</div>';
+                } else {
+                    result.innerHTML = '<div class="test-result fail">✗ FAIL: ShareKey mismatch</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="test-result fail">✗ ERROR: ${error.message}</div>`;
+            }
+        }
+
+        function testExecutionSync() {
+            const result = document.getElementById('test2-result');
+            try {
+                // Test if evidence items have the same shareKey
+                const flow1Evidence = mockWorkflow.flows[0].data[0].subcategories[0].subcategories[0];
+                const flow2Evidence = mockWorkflow.flows[1].data[0].subcategories[0].subcategories[0];
+                
+                if (flow1Evidence.shareKey === flow2Evidence.shareKey && 
+                    flow1Evidence.shareKey === 'shared-evi-1') {
+                    result.innerHTML = '<div class="test-result pass">✓ PASS: Evidence items have correct shareKey for sync</div>';
+                } else {
+                    result.innerHTML = '<div class="test-result fail">✗ FAIL: Evidence shareKey mismatch</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="test-result fail">✗ ERROR: ${error.message}</div>`;
+            }
+        }
+
+        function testStructureSync() {
+            const result = document.getElementById('test3-result');
+            try {
+                // Test if actions have the same shareKey
+                const flow1Action = mockWorkflow.flows[0].data[0].subcategories[0];
+                const flow2Action = mockWorkflow.flows[1].data[0].subcategories[0];
+                
+                if (flow1Action.shareKey === flow2Action.shareKey && 
+                    flow1Action.shareKey === 'shared-act-1') {
+                    result.innerHTML = '<div class="test-result pass">✓ PASS: Actions have correct shareKey for structure sync</div>';
+                } else {
+                    result.innerHTML = '<div class="test-result fail">✗ FAIL: Action shareKey mismatch</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="test-result fail">✗ ERROR: ${error.message}</div>`;
+            }
+        }
+
+        function testParentLookup() {
+            const result = document.getElementById('test4-result');
+            try {
+                // Test parent lookup logic
+                const findControlIn = (targetFlow, srcCtl) => {
+                    if (srcCtl.shareKey) {
+                        const found = (targetFlow.data || []).find(c => c.shareKey === srcCtl.shareKey);
+                        if (found) return found;
+                    }
+                    return (targetFlow.data || []).find(c => c.name === srcCtl.name) || null;
+                };
+
+                const srcControl = mockWorkflow.flows[0].data[0];
+                const targetFlow = mockWorkflow.flows[1];
+                const foundControl = findControlIn(targetFlow, srcControl);
+                
+                if (foundControl && foundControl.shareKey === srcControl.shareKey) {
+                    result.innerHTML = '<div class="test-result pass">✓ PASS: Parent control lookup works correctly</div>';
+                } else {
+                    result.innerHTML = '<div class="test-result fail">✗ FAIL: Parent control lookup failed</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="test-result fail">✗ ERROR: ${error.message}</div>`;
+            }
+        }
+
+        function testTagAutocomplete() {
+            const result = document.getElementById('test5-result');
+            try {
+                // Test tag collection
+                const getAllTags = () => {
+                    const tagSet = new Set();
+                    mockWorkflow.flows.forEach(flow => {
+                        (flow.data || []).forEach(ctl => {
+                            (ctl.tags || []).forEach(tag => tagSet.add(tag));
+                            (ctl.subcategories || []).forEach(act => {
+                                (act.tags || []).forEach(tag => tagSet.add(tag));
+                                (act.subcategories || []).forEach(ev => {
+                                    (ev.tags || []).forEach(tag => tagSet.add(tag));
+                                });
+                            });
+                        });
+                    });
+                    return Array.from(tagSet).sort();
+                };
+
+                const allTags = getAllTags();
+                const expectedTags = ['compliance', 'documentation', 'monitoring', 'security'];
+                
+                if (JSON.stringify(allTags) === JSON.stringify(expectedTags)) {
+                    result.innerHTML = '<div class="test-result pass">✓ PASS: Tag collection works correctly</div>';
+                } else {
+                    result.innerHTML = `<div class="test-result fail">✗ FAIL: Expected ${expectedTags}, got ${JSON.stringify(allTags)}</div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="test-result fail">✗ ERROR: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

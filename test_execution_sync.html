@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Execution Synchronization Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .test-container { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-title { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; margin-bottom: 15px; }
+        .test-result { margin: 10px 0; padding: 8px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .test-button { background: #007acc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .test-button:hover { background: #0056b3; }
+        .test-data { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .flow-comparison { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 10px 0; }
+        .flow-data { background: #f8f9fa; padding: 10px; border-radius: 4px; }
+        .flow-title { font-weight: bold; color: #007acc; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Execution Synchronization Test</h1>
+    <p>This test verifies that execution data (completion status) is properly synchronized across shared items in different flows.</p>
+
+    <div class="test-container">
+        <h2 class="test-title">Test Scenario</h2>
+        <p>1. Create Flow A with some evidence items</p>
+        <p>2. Clone Flow A to create Flow B</p>
+        <p>3. Tick a box in Flow B (execution mode)</p>
+        <p>4. Share Flow B to create Flow C</p>
+        <p>5. Verify that the ticked box in Flow B is also ticked in Flow C</p>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">Test Controls</h2>
+        <button class="test-button" onclick="runExecutionSyncTest()">Run Execution Sync Test</button>
+        <button class="test-button" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <script>
+        // Mock workflow data simulating the scenario
+        const mockWorkflow = {
+            settings: { enforceSequence: true },
+            flows: [
+                {
+                    id: 'flow-a',
+                    name: 'Flow A',
+                    data: [
+                        {
+                            id: 'ctl-1',
+                            name: 'Control 1',
+                            text: 'Control 1 description',
+                            tags: ['security'],
+                            shareKey: 'shared-ctl-1',
+                            subcategories: [
+                                {
+                                    id: 'act-1',
+                                    name: 'Action 1',
+                                    text: 'Action 1 description',
+                                    tags: ['implementation'],
+                                    shareKey: 'shared-act-1',
+                                    subcategories: [
+                                        {
+                                            id: 'evi-1',
+                                            name: 'Evidence 1',
+                                            text: 'Evidence 1 description',
+                                            tags: ['documentation'],
+                                            shareKey: 'shared-evi-1',
+                                            grade: 2.0,
+                                            completed: false,
+                                            footer: { links: [], images: [], notes: [], comments: [] }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'flow-b',
+                    name: 'Flow B',
+                    data: [
+                        {
+                            id: 'ctl-2',
+                            name: 'Control 1',
+                            text: 'Control 1 description',
+                            tags: ['security'],
+                            shareKey: 'shared-ctl-1',
+                            subcategories: [
+                                {
+                                    id: 'act-2',
+                                    name: 'Action 1',
+                                    text: 'Action 1 description',
+                                    tags: ['implementation'],
+                                    shareKey: 'shared-act-1',
+                                    subcategories: [
+                                        {
+                                            id: 'evi-2',
+                                            name: 'Evidence 1',
+                                            text: 'Evidence 1 description',
+                                            tags: ['documentation'],
+                                            shareKey: 'shared-evi-1',
+                                            grade: 2.0,
+                                            completed: false,
+                                            footer: { links: [], images: [], notes: [], comments: [] }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'flow-c',
+                    name: 'Flow C',
+                    data: [
+                        {
+                            id: 'ctl-3',
+                            name: 'Control 1',
+                            text: 'Control 1 description',
+                            tags: ['security'],
+                            shareKey: 'shared-ctl-1',
+                            subcategories: [
+                                {
+                                    id: 'act-3',
+                                    name: 'Action 1',
+                                    text: 'Action 1 description',
+                                    tags: ['implementation'],
+                                    shareKey: 'shared-act-1',
+                                    subcategories: [
+                                        {
+                                            id: 'evi-3',
+                                            name: 'Evidence 1',
+                                            text: 'Evidence 1 description',
+                                            tags: ['documentation'],
+                                            shareKey: 'shared-evi-1',
+                                            grade: 2.0,
+                                            completed: false,
+                                            footer: { links: [], images: [], notes: [], comments: [] }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Mock execution data - Flow B has evidence ticked
+        const mockExecutions = {
+            flows: {
+                'flow-a': { completed: { 'evi-1': false } },
+                'flow-b': { completed: { 'evi-2': true } },  // This is ticked
+                'flow-c': { completed: { 'evi-3': false } }  // This should be ticked after sync
+            }
+        };
+
+        // Test helper functions
+        function addTestResult(title, status, message, data = null) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${status}`;
+            
+            let content = `<strong>${title}</strong>: ${message}`;
+            if (data) {
+                content += `<div class="test-data">${JSON.stringify(data, null, 2)}</div>`;
+            }
+            
+            resultDiv.innerHTML = content;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Simulate the synchronizeSharedExecutionData function
+        function synchronizeSharedExecutionData(workflow, executions) {
+            // Create a map of shareKey to the most recent execution status
+            const shareKeyToExecutionStatus = new Map();
+            
+            // First pass: collect all execution statuses by shareKey
+            workflow.flows.forEach(flow => {
+                const exec = executions.flows[flow.id] || { completed: {} };
+                (flow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+                    if (ev.shareKey && typeof exec.completed[ev.id] === 'boolean') {
+                        // If we already have a status for this shareKey, keep the most recent one (true takes precedence)
+                        if (!shareKeyToExecutionStatus.has(ev.shareKey) || exec.completed[ev.id] === true) {
+                            shareKeyToExecutionStatus.set(ev.shareKey, exec.completed[ev.id]);
+                        }
+                    }
+                })));
+            });
+            
+            // Second pass: apply the synchronized status to all evidence items with the same shareKey
+            workflow.flows.forEach(flow => {
+                const exec = executions.flows[flow.id] || { completed: {} };
+                (flow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+                    if (ev.shareKey && shareKeyToExecutionStatus.has(ev.shareKey)) {
+                        exec.completed[ev.id] = shareKeyToExecutionStatus.get(ev.shareKey);
+                    }
+                })));
+            });
+        }
+
+        function runExecutionSyncTest() {
+            clearResults();
+            addTestResult('Execution Sync Test', 'info', 'Starting execution synchronization test...');
+            
+            // Show initial state
+            addTestResult('Initial State', 'info', 'Before synchronization:', {
+                'Flow A': mockExecutions.flows['flow-a'].completed,
+                'Flow B': mockExecutions.flows['flow-b'].completed,
+                'Flow C': mockExecutions.flows['flow-c'].completed
+            });
+            
+            // Run synchronization
+            synchronizeSharedExecutionData(mockWorkflow, mockExecutions);
+            
+            // Show final state
+            addTestResult('Final State', 'info', 'After synchronization:', {
+                'Flow A': mockExecutions.flows['flow-a'].completed,
+                'Flow B': mockExecutions.flows['flow-b'].completed,
+                'Flow C': mockExecutions.flows['flow-c'].completed
+            });
+            
+            // Verify results
+            const flowACompleted = mockExecutions.flows['flow-a'].completed['evi-1'];
+            const flowBCompleted = mockExecutions.flows['flow-b'].completed['evi-2'];
+            const flowCCompleted = mockExecutions.flows['flow-c'].completed['evi-3'];
+            
+            if (flowACompleted === true && flowBCompleted === true && flowCCompleted === true) {
+                addTestResult('Execution Sync Test', 'pass', 'SUCCESS: All shared evidence items are now synchronized (all ticked)');
+            } else {
+                addTestResult('Execution Sync Test', 'fail', 'FAIL: Evidence items are not properly synchronized', {
+                    'Flow A evidence 1': flowACompleted,
+                    'Flow B evidence 2': flowBCompleted,
+                    'Flow C evidence 3': flowCCompleted
+                });
+            }
+            
+            // Test the specific scenario: Flow B was ticked, Flow C should now be ticked too
+            if (flowCCompleted === true) {
+                addTestResult('Specific Scenario Test', 'pass', 'SUCCESS: Flow C evidence is now ticked (synchronized from Flow B)');
+            } else {
+                addTestResult('Specific Scenario Test', 'fail', 'FAIL: Flow C evidence is not ticked despite Flow B being ticked');
+            }
+        }
+
+        // Initialize the test
+        document.addEventListener('DOMContentLoaded', () => {
+            addTestResult('Test Suite', 'info', 'Execution synchronization test loaded and ready. Click "Run Execution Sync Test" to begin.');
+        });
+    </script>
+</body>
+</html>

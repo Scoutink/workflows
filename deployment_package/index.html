@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compliance Workflow Manager</title>
+    <meta name="description" content="Manage complex compliance workflows with an Action and Evidence Register model." />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Quill (notes) -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+    <!-- App styles -->
+    <link rel="stylesheet" href="style.css" />
+    <link
+        rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%236366f1' d='M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.24L19.5 8.5 12 12.26 4.5 8.5 12 4.24zM3 8.82v6.36l8 4v-6.72L3 8.82zm9 3.46v6.72l8-4V8.82l-8 3.46z'/></svg>"
+    />
+</head>
+<body>
+    <div id="app-container">
+        <!-- Header -->
+        <div class="top-bar">
+            <div class="header-controls">
+                <div class="header-title">
+                    <h1>Compliance Manager</h1>
+                    <div class="app-version">v6.1 Multi-Flow</div>
+                </div>
+
+                <!-- FLOW PICKER -->
+                <div class="flows-bar">
+                    <label class="flow-label">
+                        <i class="fa-solid fa-diagram-project"></i> Flow:
+                    </label>
+                    <select id="flow-select" aria-label="Select flow"></select>
+                    <!-- Creation-only management -->
+                    <button id="flow-new" class="doc-button creation-only" title="Create flow">
+                        <i class="fa-solid fa-plus"></i> New
+                    </button>
+                    <button id="flow-rename" class="doc-button creation-only" title="Rename flow">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button id="flow-delete" class="doc-button danger creation-only" title="Delete flow">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                    <button id="global-tag-filter" class="doc-button" title="Cross-flow tag filter">
+                        <i class="fa-solid fa-filter"></i> Global Filter
+                    </button>
+                </div>
+
+                <div class="header-buttons">
+                    <button id="theme-toggle-btn" class="doc-button" title="Toggle Dark/Light Theme" aria-label="Toggle theme">
+                        <i class="fa-solid fa-circle-half-stroke"></i>
+                    </button>
+                    <a
+                        href="https://corprorate.com/newflow/documentation.html"
+                        target="_blank"
+                        class="doc-button"
+                        title="View the user manual"
+                        aria-label="Documentation"
+                    >
+                        <i class="fa-solid fa-circle-question"></i> Help
+                    </a>
+                </div>
+
+                <div class="mode-toggle">
+                    <span class="mode-label">Creation</span>
+                    <label class="switch">
+                        <input type="checkbox" id="mode-switch-checkbox" aria-label="Toggle between creation and execution modes" />
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="mode-label">Execution</span>
+                </div>
+            </div>
+
+            <!-- Active tag filter banner (per-flow) -->
+            <div id="tag-filter-banner" class="execution-only hidden" style="margin-top: 12px">
+                <span class="tag-filter-chip">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>Filtered by tag:</span>
+                    <strong id="active-tag-label">#example</strong>
+                    <button id="clear-tag-filter" class="clear-tag-filter" aria-label="Clear tag filter">
+                        <i class="fa-solid fa-xmark"></i> Clear
+                    </button>
+                </span>
+            </div>
+
+            <!-- Global settings / save -->
+            <div class="global-settings">
+                <div class="left-global">
+                    <label class="setting-toggle creation-only" title="If checked, evidence must be completed in order.">
+                        <input type="checkbox" id="enforce-sequence-checkbox" />
+                        Enforce Sequential Order
+                    </label>
+                </div>
+                <div class="right-global">
+                    <button id="save-structure-btn" class="primary creation-only" aria-label="Save creation data">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Save Structure
+                    </button>
+                    <button id="save-execution-btn" class="secondary execution-only" aria-label="Save execution data">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Execution
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main workflow content -->
+        <div id="workflow-root"><div class="loading-state">Loading...</div></div>
+
+        <!-- Add Category button -->
+        <div id="add-category-btn-container" class="creation-only">
+            <button id="add-category-btn" data-action="add-category" data-path="data" aria-label="Add new control">
+                <i class="fa-solid fa-plus"></i> Add New Rule
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal-backdrop" class="hidden">
+        <div id="modal-content">
+            <button id="modal-close-btn" title="Close" aria-label="Close modal"><i class="fa-solid fa-xmark"></i></button>
+            <h3 id="modal-title">Modal Title</h3>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Quill -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <!-- App -->
+    <script src="script.js"></script>
+</body>
+</html>

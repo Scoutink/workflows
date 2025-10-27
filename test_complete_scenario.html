@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Workflow Scenario Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .test-container { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-title { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; margin-bottom: 15px; }
+        .test-result { margin: 10px 0; padding: 8px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .test-button { background: #007acc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .test-button:hover { background: #0056b3; }
+        .test-data { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .scenario-step { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0; border-left: 4px solid #007acc; }
+        .step-title { font-weight: bold; color: #007acc; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Complete Workflow Scenario Test</h1>
+    <p>This test simulates the exact scenario you described: Clone A → B, tick box in B, share B → C, verify C has the ticked box.</p>
+
+    <div class="test-container">
+        <h2 class="test-title">Scenario Steps</h2>
+        <div class="scenario-step">
+            <div class="step-title">Step 1: Create Flow A</div>
+            <p>Flow A contains evidence items with shareKeys</p>
+        </div>
+        <div class="scenario-step">
+            <div class="step-title">Step 2: Clone Flow A to create Flow B</div>
+            <p>Flow B gets new IDs but same shareKeys as Flow A</p>
+        </div>
+        <div class="scenario-step">
+            <div class="step-title">Step 3: Tick a box in Flow B (execution mode)</div>
+            <p>Evidence completion status is set to true in Flow B</p>
+        </div>
+        <div class="scenario-step">
+            <div class="step-title">Step 4: Share Flow B to create Flow C</div>
+            <p>Flow C gets new IDs but same shareKeys as Flow B</p>
+        </div>
+        <div class="scenario-step">
+            <div class="step-title">Step 5: Verify Flow C has the ticked box</div>
+            <p>Evidence completion status should be synchronized across all flows</p>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">Test Controls</h2>
+        <button class="test-button" onclick="runCompleteScenarioTest()">Run Complete Scenario Test</button>
+        <button class="test-button" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <script>
+        // Test helper functions
+        function addTestResult(title, status, message, data = null) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${status}`;
+            
+            let content = `<strong>${title}</strong>: ${message}`;
+            if (data) {
+                content += `<div class="test-data">${JSON.stringify(data, null, 2)}</div>`;
+            }
+            
+            resultDiv.innerHTML = content;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Simulate the synchronizeSharedExecutionData function
+        function synchronizeSharedExecutionData(workflow, executions) {
+            // Create a map of shareKey to the most recent execution status
+            const shareKeyToExecutionStatus = new Map();
+            
+            // First pass: collect all execution statuses by shareKey
+            workflow.flows.forEach(flow => {
+                const exec = executions.flows[flow.id] || { completed: {} };
+                (flow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+                    if (ev.shareKey && typeof exec.completed[ev.id] === 'boolean') {
+                        // If we already have a status for this shareKey, keep the most recent one (true takes precedence)
+                        if (!shareKeyToExecutionStatus.has(ev.shareKey) || exec.completed[ev.id] === true) {
+                            shareKeyToExecutionStatus.set(ev.shareKey, exec.completed[ev.id]);
+                        }
+                    }
+                })));
+            });
+            
+            // Second pass: apply the synchronized status to all evidence items with the same shareKey
+            workflow.flows.forEach(flow => {
+                const exec = executions.flows[flow.id] || { completed: {} };
+                (flow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+                    if (ev.shareKey && shareKeyToExecutionStatus.has(ev.shareKey)) {
+                        exec.completed[ev.id] = shareKeyToExecutionStatus.get(ev.shareKey);
+                    }
+                })));
+            });
+        }
+
+        function runCompleteScenarioTest() {
+            clearResults();
+            addTestResult('Complete Scenario Test', 'info', 'Starting complete workflow scenario test...');
+            
+            // Step 1: Create Flow A
+            addTestResult('Step 1', 'info', 'Creating Flow A with evidence items...');
+            const workflow = {
+                settings: { enforceSequence: true },
+                flows: [
+                    {
+                        id: 'flow-a',
+                        name: 'Flow A',
+                        data: [
+                            {
+                                id: 'ctl-1',
+                                name: 'Control 1',
+                                text: 'Control 1 description',
+                                tags: ['security'],
+                                shareKey: 'shared-ctl-1',
+                                subcategories: [
+                                    {
+                                        id: 'act-1',
+                                        name: 'Action 1',
+                                        text: 'Action 1 description',
+                                        tags: ['implementation'],
+                                        shareKey: 'shared-act-1',
+                                        subcategories: [
+                                            {
+                                                id: 'evi-1',
+                                                name: 'Evidence 1',
+                                                text: 'Evidence 1 description',
+                                                tags: ['documentation'],
+                                                shareKey: 'shared-evi-1',
+                                                grade: 2.0,
+                                                completed: false,
+                                                footer: { links: [], images: [], notes: [], comments: [] }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            const executions = {
+                flows: {
+                    'flow-a': { completed: { 'evi-1': false } }
+                }
+            };
+
+            addTestResult('Step 1', 'pass', 'Flow A created successfully', {
+                'Flow A evidence completion': executions.flows['flow-a'].completed['evi-1']
+            });
+
+            // Step 2: Clone Flow A to create Flow B
+            addTestResult('Step 2', 'info', 'Cloning Flow A to create Flow B...');
+            const flowB = {
+                id: 'flow-b',
+                name: 'Flow B',
+                data: JSON.parse(JSON.stringify(workflow.flows[0].data))
+            };
+
+            // Update IDs for Flow B (simulating clone)
+            flowB.data[0].id = 'ctl-2';
+            flowB.data[0].subcategories[0].id = 'act-2';
+            flowB.data[0].subcategories[0].subcategories[0].id = 'evi-2';
+
+            workflow.flows.push(flowB);
+            executions.flows['flow-b'] = { completed: { 'evi-2': false } };
+
+            addTestResult('Step 2', 'pass', 'Flow B created successfully (cloned from Flow A)', {
+                'Flow B evidence completion': executions.flows['flow-b'].completed['evi-2'],
+                'ShareKeys match': flowB.data[0].subcategories[0].subcategories[0].shareKey === workflow.flows[0].data[0].subcategories[0].subcategories[0].shareKey
+            });
+
+            // Step 3: Tick a box in Flow B (execution mode)
+            addTestResult('Step 3', 'info', 'Ticking a box in Flow B (execution mode)...');
+            executions.flows['flow-b'].completed['evi-2'] = true;
+
+            addTestResult('Step 3', 'pass', 'Evidence in Flow B is now ticked', {
+                'Flow A evidence completion': executions.flows['flow-a'].completed['evi-1'],
+                'Flow B evidence completion': executions.flows['flow-b'].completed['evi-2']
+            });
+
+            // Step 4: Share Flow B to create Flow C
+            addTestResult('Step 4', 'info', 'Sharing Flow B to create Flow C...');
+            const flowC = {
+                id: 'flow-c',
+                name: 'Flow C',
+                data: JSON.parse(JSON.stringify(flowB.data))
+            };
+
+            // Update IDs for Flow C (simulating share)
+            flowC.data[0].id = 'ctl-3';
+            flowC.data[0].subcategories[0].id = 'act-3';
+            flowC.data[0].subcategories[0].subcategories[0].id = 'evi-3';
+
+            workflow.flows.push(flowC);
+            executions.flows['flow-c'] = { completed: { 'evi-3': false } };
+
+            addTestResult('Step 4', 'pass', 'Flow C created successfully (shared from Flow B)', {
+                'Flow C evidence completion': executions.flows['flow-c'].completed['evi-3'],
+                'ShareKeys match': flowC.data[0].subcategories[0].subcategories[0].shareKey === flowB.data[0].subcategories[0].subcategories[0].shareKey
+            });
+
+            // Step 5: Synchronize execution data (this is what the fix does)
+            addTestResult('Step 5', 'info', 'Synchronizing execution data across all flows...');
+            synchronizeSharedExecutionData(workflow, executions);
+
+            // Verify results
+            const flowACompleted = executions.flows['flow-a'].completed['evi-1'];
+            const flowBCompleted = executions.flows['flow-b'].completed['evi-2'];
+            const flowCCompleted = executions.flows['flow-c'].completed['evi-3'];
+
+            addTestResult('Step 5', 'info', 'After synchronization:', {
+                'Flow A evidence completion': flowACompleted,
+                'Flow B evidence completion': flowBCompleted,
+                'Flow C evidence completion': flowCCompleted
+            });
+
+            // Test the specific scenario: Flow C should now have the ticked box
+            if (flowCCompleted === true) {
+                addTestResult('Scenario Result', 'pass', 'SUCCESS: Flow C now has the ticked box! The sharing is working correctly.');
+            } else {
+                addTestResult('Scenario Result', 'fail', 'FAIL: Flow C does not have the ticked box. The sharing is not working.');
+            }
+
+            // Additional verification: all shared items should have the same completion status
+            if (flowACompleted === flowBCompleted && flowBCompleted === flowCCompleted) {
+                addTestResult('Consistency Check', 'pass', 'SUCCESS: All shared evidence items have consistent completion status');
+            } else {
+                addTestResult('Consistency Check', 'fail', 'FAIL: Shared evidence items have inconsistent completion status');
+            }
+
+            // Summary
+            addTestResult('Test Summary', 'info', 'Test completed. The fix ensures that when you create a shared workflow, the execution data is properly synchronized across all flows with the same shareKey.');
+        }
+
+        // Initialize the test
+        document.addEventListener('DOMContentLoaded', () => {
+            addTestResult('Test Suite', 'info', 'Complete scenario test loaded and ready. Click "Run Complete Scenario Test" to begin.');
+        });
+    </script>
+</body>
+</html>

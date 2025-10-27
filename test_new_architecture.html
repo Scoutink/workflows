@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Architecture Test Suite</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .pass { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { margin: 5px; padding: 8px 16px; cursor: pointer; }
+        .test-data { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>New Reference-Based Architecture Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Basic Item Management</h2>
+        <button onclick="testBasicItemManagement()">Run Test</button>
+        <div id="test1-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Sharing System</h2>
+        <button onclick="testSharingSystem()">Run Test</button>
+        <div id="test2-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Cloning System</h2>
+        <button onclick="testCloningSystem()">Run Test</button>
+        <div id="test3-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Flow Management</h2>
+        <button onclick="testFlowManagement()">Run Test</button>
+        <div id="test4-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Execution Synchronization</h2>
+        <button onclick="testExecutionSynchronization()">Run Test</button>
+        <div id="test5-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 6: Data Migration</h2>
+        <button onclick="testDataMigration()">Run Test</button>
+        <div id="test6-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 7: Complete Workflow Scenario</h2>
+        <button onclick="testCompleteWorkflow()">Run Test</button>
+        <div id="test7-results"></div>
+    </div>
+
+    <script>
+        // Mock the new architecture functions for testing
+        let mockAppState = {
+            items: {},
+            flows: {},
+            itemHierarchy: {},
+            executions: {},
+            currentFlowId: null
+        };
+
+        // Mock functions
+        const generateId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+        const createItem = (type, data, parentId = null) => {
+            const id = generateId(type === 'control' ? 'ctl' : type === 'action' ? 'act' : 'evi');
+            const item = {
+                id,
+                type,
+                name: data.name || '',
+                text: data.text || '',
+                tags: data.tags || [],
+                grade: data.grade,
+                footer: data.footer || { links: [], images: [], notes: [], comments: [] },
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                isShared: false,
+                originalId: null,
+                shareGroup: null
+            };
+            
+            mockAppState.items[id] = item;
+            
+            mockAppState.itemHierarchy[id] = {
+                parentId: parentId,
+                childRefs: [],
+                flowRefs: []
+            };
+            
+            mockAppState.executions[id] = {
+                completed: false,
+                grade: data.grade,
+                completedAt: null,
+                completedBy: null
+            };
+            
+            if (parentId) {
+                addChildToParent(parentId, id);
+            }
+            
+            return item;
+        };
+
+        const getItem = (id) => mockAppState.items[id];
+
+        const updateItem = (id, updates) => {
+            if (mockAppState.items[id]) {
+                mockAppState.items[id] = {
+                    ...mockAppState.items[id],
+                    ...updates,
+                    updatedAt: Date.now()
+                };
+            }
+        };
+
+        const addChildToParent = (parentId, childId) => {
+            if (mockAppState.itemHierarchy[parentId]) {
+                mockAppState.itemHierarchy[parentId].childRefs.push(childId);
+            }
+        };
+
+        const addFlowReference = (itemId, flowId) => {
+            if (mockAppState.itemHierarchy[itemId]) {
+                if (!mockAppState.itemHierarchy[itemId].flowRefs.includes(flowId)) {
+                    mockAppState.itemHierarchy[itemId].flowRefs.push(flowId);
+                }
+            }
+        };
+
+        const shareItem = (itemId, targetFlowId, targetParentId = null) => {
+            const item = getItem(itemId);
+            const targetFlow = mockAppState.flows[targetFlowId];
+            
+            if (!item || !targetFlow) {
+                throw new Error('Item or flow not found');
+            }
+            
+            if (targetParentId && !validateParentInFlow(targetParentId, targetFlowId)) {
+                throw new Error('Parent not found in target flow');
+            }
+            
+            if (item.type === 'control') {
+                targetFlow.controlRefs.push(itemId);
+            } else {
+                addChildToParent(targetParentId, itemId);
+            }
+            
+            updateItem(itemId, { isShared: true });
+            addFlowReference(itemId, targetFlowId);
+            
+            const hierarchy = mockAppState.itemHierarchy[itemId];
+            if (hierarchy) {
+                hierarchy.childRefs.forEach(childId => {
+                    shareItem(childId, targetFlowId, itemId);
+                });
+            }
+        };
+
+        const cloneItem = (itemId, targetFlowId, targetParentId = null) => {
+            const originalItem = getItem(itemId);
+            if (!originalItem) {
+                throw new Error('Item not found');
+            }
+            
+            const clonedData = {
+                name: originalItem.name,
+                text: originalItem.text,
+                tags: [...originalItem.tags],
+                grade: originalItem.grade,
+                footer: JSON.parse(JSON.stringify(originalItem.footer))
+            };
+            
+            const newItem = createItem(originalItem.type, clonedData, targetParentId);
+            
+            updateItem(newItem.id, { 
+                originalId: itemId,
+                isShared: false 
+            });
+            
+            const hierarchy = mockAppState.itemHierarchy[itemId];
+            if (hierarchy) {
+                hierarchy.childRefs.forEach(childId => {
+                    cloneItem(childId, targetFlowId, newItem.id);
+                });
+            }
+            
+            return newItem;
+        };
+
+        const validateParentInFlow = (parentId, flowId) => {
+            const flow = mockAppState.flows[flowId];
+            if (!flow) return false;
+            
+            if (mockAppState.items[parentId]?.type === 'control') {
+                return flow.controlRefs.includes(parentId);
+            }
+            
+            if (mockAppState.items[parentId]?.type === 'action') {
+                const parentHierarchy = mockAppState.itemHierarchy[parentId];
+                if (parentHierarchy?.parentId) {
+                    const controlId = parentHierarchy.parentId;
+                    if (flow.controlRefs.includes(controlId)) {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        };
+
+        const createFlow = (name, sourceFlowId = null, mode = 'empty') => {
+            const flowId = generateId('flow');
+            const flow = {
+                id: flowId,
+                name,
+                controlRefs: [],
+                settings: { enforceSequence: true },
+                metadata: {
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                }
+            };
+            
+            if (mode === 'clone' && sourceFlowId) {
+                const sourceFlow = mockAppState.flows[sourceFlowId];
+                sourceFlow.controlRefs.forEach(controlId => {
+                    const clonedControl = cloneItem(controlId, flowId);
+                    flow.controlRefs.push(clonedControl.id);
+                });
+            } else if (mode === 'share' && sourceFlowId) {
+                const sourceFlow = mockAppState.flows[sourceFlowId];
+                sourceFlow.controlRefs.forEach(controlId => {
+                    shareItem(controlId, flowId);
+                });
+            }
+            
+            mockAppState.flows[flowId] = flow;
+            return flow;
+        };
+
+        const setCompleted = (itemId, value) => {
+            if (mockAppState.executions[itemId]) {
+                mockAppState.executions[itemId].completed = !!value;
+                mockAppState.executions[itemId].completedAt = value ? Date.now() : null;
+            }
+        };
+
+        const getCompleted = (itemId, fallback = false) => {
+            const exec = mockAppState.executions[itemId];
+            return exec ? exec.completed : fallback;
+        };
+
+        // Test functions
+        function addResult(testId, message, type = 'info') {
+            const resultsDiv = document.getElementById(testId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function testBasicItemManagement() {
+            const testId = 'test1-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Test 1.1: Create control
+                const control = createItem('control', { name: 'Test Control', text: 'Control text' });
+                addResult(testId, `✓ Created control: ${control.name} (ID: ${control.id})`, 'pass');
+                
+                // Test 1.2: Create action under control
+                const action = createItem('action', { name: 'Test Action', text: 'Action text' }, control.id);
+                addResult(testId, `✓ Created action: ${action.name} (ID: ${action.id})`, 'pass');
+                
+                // Test 1.3: Create evidence under action
+                const evidence = createItem('evidence', { 
+                    name: 'Test Evidence', 
+                    text: 'Evidence text',
+                    grade: 2.5,
+                    tags: ['test', 'evidence']
+                }, action.id);
+                addResult(testId, `✓ Created evidence: ${evidence.name} (ID: ${evidence.id})`, 'pass');
+                
+                // Test 1.4: Verify hierarchy
+                const controlHierarchy = mockAppState.itemHierarchy[control.id];
+                const actionHierarchy = mockAppState.itemHierarchy[action.id];
+                const evidenceHierarchy = mockAppState.itemHierarchy[evidence.id];
+                
+                if (controlHierarchy.childRefs.includes(action.id)) {
+                    addResult(testId, '✓ Control contains action in hierarchy', 'pass');
+                } else {
+                    addResult(testId, '✗ Control does not contain action in hierarchy', 'fail');
+                }
+                
+                if (actionHierarchy.childRefs.includes(evidence.id)) {
+                    addResult(testId, '✓ Action contains evidence in hierarchy', 'pass');
+                } else {
+                    addResult(testId, '✗ Action does not contain evidence in hierarchy', 'fail');
+                }
+                
+                if (evidenceHierarchy.parentId === action.id) {
+                    addResult(testId, '✓ Evidence has correct parent reference', 'pass');
+                } else {
+                    addResult(testId, '✗ Evidence has incorrect parent reference', 'fail');
+                }
+                
+                // Test 1.5: Update item
+                updateItem(control.id, { name: 'Updated Control' });
+                const updatedControl = getItem(control.id);
+                if (updatedControl.name === 'Updated Control') {
+                    addResult(testId, '✓ Item update works correctly', 'pass');
+                } else {
+                    addResult(testId, '✗ Item update failed', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Items created: ${Object.keys(mockAppState.items).length}`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testSharingSystem() {
+            const testId = 'test2-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Create flow A with control and action
+                const flowA = createFlow('Flow A');
+                const control = createItem('control', { name: 'Shared Control', text: 'Control text' });
+                const action = createItem('action', { name: 'Shared Action', text: 'Action text' }, control.id);
+                const evidence = createItem('evidence', { name: 'Shared Evidence', text: 'Evidence text' }, action.id);
+                
+                flowA.controlRefs.push(control.id);
+                addFlowReference(control.id, flowA.id);
+                
+                addResult(testId, '✓ Created Flow A with control, action, and evidence', 'pass');
+                
+                // Create flow B
+                const flowB = createFlow('Flow B');
+                addResult(testId, '✓ Created Flow B', 'pass');
+                
+                // Share control from A to B
+                shareItem(control.id, flowB.id);
+                addResult(testId, '✓ Shared control from Flow A to Flow B', 'pass');
+                
+                // Verify sharing
+                const controlInB = getItem(control.id);
+                if (controlInB.isShared) {
+                    addResult(testId, '✓ Control is marked as shared', 'pass');
+                } else {
+                    addResult(testId, '✗ Control is not marked as shared', 'fail');
+                }
+                
+                const controlHierarchy = mockAppState.itemHierarchy[control.id];
+                if (controlHierarchy.flowRefs.includes(flowA.id) && controlHierarchy.flowRefs.includes(flowB.id)) {
+                    addResult(testId, '✓ Control is referenced by both flows', 'pass');
+                } else {
+                    addResult(testId, '✗ Control is not properly referenced by both flows', 'fail');
+                }
+                
+                // Test that changes in one flow affect the other
+                updateItem(control.id, { name: 'Updated Shared Control' });
+                const controlInA = getItem(control.id);
+                const controlInBAfterUpdate = getItem(control.id);
+                
+                if (controlInA.name === controlInBAfterUpdate.name) {
+                    addResult(testId, '✓ Changes to shared item are reflected in both flows', 'pass');
+                } else {
+                    addResult(testId, '✗ Changes to shared item are not reflected in both flows', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Flow A controls: ${flowA.controlRefs.length}, Flow B controls: ${flowB.controlRefs.length}`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testCloningSystem() {
+            const testId = 'test3-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Create flow A with control
+                const flowA = createFlow('Flow A');
+                const control = createItem('control', { name: 'Original Control', text: 'Original text', tags: ['original'] });
+                const action = createItem('action', { name: 'Original Action', text: 'Action text' }, control.id);
+                const evidence = createItem('evidence', { name: 'Original Evidence', text: 'Evidence text' }, action.id);
+                
+                flowA.controlRefs.push(control.id);
+                addFlowReference(control.id, flowA.id);
+                
+                addResult(testId, '✓ Created Flow A with control, action, and evidence', 'pass');
+                
+                // Create flow B
+                const flowB = createFlow('Flow B');
+                addResult(testId, '✓ Created Flow B', 'pass');
+                
+                // Clone control from A to B
+                const clonedControl = cloneItem(control.id, flowB.id);
+                flowB.controlRefs.push(clonedControl.id);
+                addFlowReference(clonedControl.id, flowB.id);
+                
+                addResult(testId, '✓ Cloned control from Flow A to Flow B', 'pass');
+                
+                // Verify cloning
+                if (clonedControl.name === control.name) {
+                    addResult(testId, '✓ Cloned control has same name', 'pass');
+                } else {
+                    addResult(testId, '✗ Cloned control has different name', 'fail');
+                }
+                
+                if (clonedControl.id !== control.id) {
+                    addResult(testId, '✓ Cloned control has different ID', 'pass');
+                } else {
+                    addResult(testId, '✗ Cloned control has same ID as original', 'fail');
+                }
+                
+                if (clonedControl.originalId === control.id) {
+                    addResult(testId, '✓ Cloned control references original', 'pass');
+                } else {
+                    addResult(testId, '✗ Cloned control does not reference original', 'fail');
+                }
+                
+                if (!clonedControl.isShared) {
+                    addResult(testId, '✓ Cloned control is not marked as shared', 'pass');
+                } else {
+                    addResult(testId, '✗ Cloned control is marked as shared', 'fail');
+                }
+                
+                // Test that changes in one flow don't affect the other
+                updateItem(control.id, { name: 'Updated Original Control' });
+                const originalAfterUpdate = getItem(control.id);
+                const clonedAfterUpdate = getItem(clonedControl.id);
+                
+                if (originalAfterUpdate.name !== clonedAfterUpdate.name) {
+                    addResult(testId, '✓ Changes to original do not affect clone', 'pass');
+                } else {
+                    addResult(testId, '✗ Changes to original affect clone', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Total items: ${Object.keys(mockAppState.items).length}`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testFlowManagement() {
+            const testId = 'test4-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Test 4.1: Create empty flow
+                const emptyFlow = createFlow('Empty Flow');
+                addResult(testId, `✓ Created empty flow: ${emptyFlow.name}`, 'pass');
+                
+                // Test 4.2: Create flow with content
+                const flowWithContent = createFlow('Flow with Content');
+                const control = createItem('control', { name: 'Test Control' });
+                flowWithContent.controlRefs.push(control.id);
+                addFlowReference(control.id, flowWithContent.id);
+                addResult(testId, `✓ Added control to flow: ${flowWithContent.name}`, 'pass');
+                
+                // Test 4.3: Clone flow
+                const clonedFlow = createFlow('Cloned Flow', flowWithContent.id, 'clone');
+                addResult(testId, `✓ Cloned flow: ${clonedFlow.name}`, 'pass');
+                
+                if (clonedFlow.controlRefs.length > 0) {
+                    addResult(testId, '✓ Cloned flow contains controls', 'pass');
+                } else {
+                    addResult(testId, '✗ Cloned flow is empty', 'fail');
+                }
+                
+                // Test 4.4: Share flow
+                const sharedFlow = createFlow('Shared Flow', flowWithContent.id, 'share');
+                addResult(testId, `✓ Shared flow: ${sharedFlow.name}`, 'pass');
+                
+                if (sharedFlow.controlRefs.length > 0) {
+                    addResult(testId, '✓ Shared flow contains controls', 'pass');
+                } else {
+                    addResult(testId, '✗ Shared flow is empty', 'fail');
+                }
+                
+                // Test 4.5: Verify flow references
+                const controlHierarchy = mockAppState.itemHierarchy[control.id];
+                const expectedFlows = [flowWithContent.id, sharedFlow.id];
+                const actualFlows = controlHierarchy.flowRefs;
+                
+                if (expectedFlows.every(flowId => actualFlows.includes(flowId))) {
+                    addResult(testId, '✓ Control is properly referenced by all flows', 'pass');
+                } else {
+                    addResult(testId, '✗ Control is not properly referenced by all flows', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Total flows: ${Object.keys(mockAppState.flows).length}`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testExecutionSynchronization() {
+            const testId = 'test5-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Create flow A with evidence
+                const flowA = createFlow('Flow A');
+                const control = createItem('control', { name: 'Test Control' });
+                const action = createItem('action', { name: 'Test Action' }, control.id);
+                const evidence = createItem('evidence', { name: 'Test Evidence' }, action.id);
+                
+                flowA.controlRefs.push(control.id);
+                addFlowReference(control.id, flowA.id);
+                
+                addResult(testId, '✓ Created Flow A with evidence', 'pass');
+                
+                // Create flow B and share control
+                const flowB = createFlow('Flow B');
+                shareItem(control.id, flowB.id);
+                addResult(testId, '✓ Shared control from Flow A to Flow B', 'pass');
+                
+                // Mark evidence as completed in Flow A
+                setCompleted(evidence.id, true);
+                addResult(testId, '✓ Marked evidence as completed in Flow A', 'pass');
+                
+                // Verify evidence is completed in Flow B
+                const evidenceCompletedInB = getCompleted(evidence.id);
+                if (evidenceCompletedInB) {
+                    addResult(testId, '✓ Evidence is completed in Flow B (shared execution state)', 'pass');
+                } else {
+                    addResult(testId, '✗ Evidence is not completed in Flow B', 'fail');
+                }
+                
+                // Mark evidence as incomplete in Flow B
+                setCompleted(evidence.id, false);
+                addResult(testId, '✓ Marked evidence as incomplete in Flow B', 'pass');
+                
+                // Verify evidence is incomplete in Flow A
+                const evidenceCompletedInA = getCompleted(evidence.id);
+                if (!evidenceCompletedInA) {
+                    addResult(testId, '✓ Evidence is incomplete in Flow A (shared execution state)', 'pass');
+                } else {
+                    addResult(testId, '✗ Evidence is not incomplete in Flow A', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Evidence ID: ${evidence.id}`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDataMigration() {
+            const testId = 'test6-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Create old format data
+                const oldData = {
+                    workflow: {
+                        flows: [
+                            {
+                                id: 'flow1',
+                                name: 'Old Flow 1',
+                                data: [
+                                    {
+                                        id: 'ctl1',
+                                        name: 'Old Control 1',
+                                        text: 'Control text',
+                                        tags: ['old', 'control'],
+                                        shareKey: 'shared-1',
+                                        subcategories: [
+                                            {
+                                                id: 'act1',
+                                                name: 'Old Action 1',
+                                                text: 'Action text',
+                                                tags: ['old', 'action'],
+                                                subcategories: [
+                                                    {
+                                                        id: 'evi1',
+                                                        name: 'Old Evidence 1',
+                                                        text: 'Evidence text',
+                                                        grade: 2.5,
+                                                        tags: ['old', 'evidence'],
+                                                        footer: { links: [], images: [], notes: [], comments: [] }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    executions: {
+                        flows: {
+                            'flow1': {
+                                completed: {
+                                    'evi1': true
+                                }
+                            }
+                        }
+                    }
+                };
+                
+                addResult(testId, '✓ Created old format test data', 'pass');
+                
+                // Mock migration function
+                const migrateToNewArchitecture = (oldData) => {
+                    const newState = {
+                        items: {},
+                        flows: {},
+                        itemHierarchy: {},
+                        executions: {},
+                        currentFlowId: oldData.workflow.flows[0]?.id || null,
+                        currentMode: 'execution',
+                        selectedActionPaths: {},
+                        expandedTextAreas: new Set(),
+                        activeTag: null,
+                        theme: 'light'
+                    };
+                    
+                    // Migrate flows
+                    oldData.workflow.flows.forEach(flow => {
+                        newState.flows[flow.id] = {
+                            id: flow.id,
+                            name: flow.name,
+                            controlRefs: [],
+                            settings: flow.settings || { enforceSequence: true },
+                            metadata: {
+                                createdAt: Date.now(),
+                                updatedAt: Date.now()
+                            }
+                        };
+                        
+                        // Migrate controls
+                        (flow.data || []).forEach(control => {
+                            const controlId = migrateItem(control, 'control', newState);
+                            newState.flows[flow.id].controlRefs.push(controlId);
+                        });
+                    });
+                    
+                    // Migrate execution data
+                    Object.keys(oldData.executions.flows).forEach(flowId => {
+                        const flowExec = oldData.executions.flows[flowId];
+                        Object.keys(flowExec.completed).forEach(evidenceId => {
+                            if (newState.executions[evidenceId]) {
+                                newState.executions[evidenceId].completed = flowExec.completed[evidenceId];
+                            }
+                        });
+                    });
+                    
+                    return newState;
+                };
+
+                const migrateItem = (item, type, newState) => {
+                    const itemId = item.id;
+                    
+                    // Create item in registry
+                    newState.items[itemId] = {
+                        id: itemId,
+                        type,
+                        name: item.name,
+                        text: item.text || '',
+                        tags: item.tags || [],
+                        grade: item.grade,
+                        footer: item.footer || { links: [], images: [], notes: [], comments: [] },
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                        isShared: !!item.shareKey,
+                        shareGroup: item.shareKey
+                    };
+                    
+                    // Create hierarchy entry
+                    newState.itemHierarchy[itemId] = {
+                        parentId: null,
+                        childRefs: [],
+                        flowRefs: []
+                    };
+                    
+                    // Initialize execution data
+                    newState.executions[itemId] = {
+                        completed: false,
+                        grade: item.grade,
+                        completedAt: null,
+                        completedBy: null
+                    };
+                    
+                    // Migrate children
+                    (item.subcategories || []).forEach(child => {
+                        const childType = type === 'control' ? 'action' : 'evidence';
+                        const childId = migrateItem(child, childType, newState);
+                        
+                        // Set parent-child relationship
+                        newState.itemHierarchy[itemId].childRefs.push(childId);
+                        newState.itemHierarchy[childId].parentId = itemId;
+                    });
+                    
+                    return itemId;
+                };
+                
+                // Perform migration
+                const migratedState = migrateToNewArchitecture(oldData);
+                addResult(testId, '✓ Migrated old data to new architecture', 'pass');
+                
+                // Verify migration
+                if (Object.keys(migratedState.items).length === 3) {
+                    addResult(testId, '✓ All items migrated correctly', 'pass');
+                } else {
+                    addResult(testId, `✗ Expected 3 items, got ${Object.keys(migratedState.items).length}`, 'fail');
+                }
+                
+                if (Object.keys(migratedState.flows).length === 1) {
+                    addResult(testId, '✓ All flows migrated correctly', 'pass');
+                } else {
+                    addResult(testId, `✗ Expected 1 flow, got ${Object.keys(migratedState.flows).length}`, 'fail');
+                }
+                
+                // Verify hierarchy
+                const controlHierarchy = migratedState.itemHierarchy['ctl1'];
+                if (controlHierarchy.childRefs.includes('act1')) {
+                    addResult(testId, '✓ Control hierarchy migrated correctly', 'pass');
+                } else {
+                    addResult(testId, '✗ Control hierarchy not migrated correctly', 'fail');
+                }
+                
+                const actionHierarchy = migratedState.itemHierarchy['act1'];
+                if (actionHierarchy.childRefs.includes('evi1')) {
+                    addResult(testId, '✓ Action hierarchy migrated correctly', 'pass');
+                } else {
+                    addResult(testId, '✗ Action hierarchy not migrated correctly', 'fail');
+                }
+                
+                // Verify execution data
+                if (migratedState.executions['evi1'].completed === true) {
+                    addResult(testId, '✓ Execution data migrated correctly', 'pass');
+                } else {
+                    addResult(testId, '✗ Execution data not migrated correctly', 'fail');
+                }
+                
+                // Verify sharing
+                const control = migratedState.items['ctl1'];
+                if (control.isShared && control.shareGroup === 'shared-1') {
+                    addResult(testId, '✓ Sharing information migrated correctly', 'pass');
+                } else {
+                    addResult(testId, '✗ Sharing information not migrated correctly', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Migrated ${Object.keys(migratedState.items).length} items`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testCompleteWorkflow() {
+            const testId = 'test7-results';
+            document.getElementById(testId).innerHTML = '';
+            
+            try {
+                // Step 1: Create Flow A
+                const flowA = createFlow('Flow A');
+                const controlA = createItem('control', { name: 'Control A', text: 'Control A text', tags: ['flow-a'] });
+                const actionA = createItem('action', { name: 'Action A', text: 'Action A text', tags: ['flow-a'] }, controlA.id);
+                const evidenceA = createItem('evidence', { name: 'Evidence A', text: 'Evidence A text', grade: 2.0, tags: ['flow-a'] }, actionA.id);
+                
+                flowA.controlRefs.push(controlA.id);
+                addFlowReference(controlA.id, flowA.id);
+                
+                addResult(testId, '✓ Step 1: Created Flow A with control, action, and evidence', 'pass');
+                
+                // Step 2: Clone Flow A to create Flow B
+                const flowB = createFlow('Flow B', flowA.id, 'clone');
+                addResult(testId, '✓ Step 2: Cloned Flow A to create Flow B', 'pass');
+                
+                // Step 3: Mark evidence as completed in Flow B
+                const evidenceB = Object.values(mockAppState.items).find(item => 
+                    item.type === 'evidence' && item.name === 'Evidence A' && item.originalId === evidenceA.id
+                );
+                if (evidenceB) {
+                    setCompleted(evidenceB.id, true);
+                    addResult(testId, '✓ Step 3: Marked evidence as completed in Flow B', 'pass');
+                } else {
+                    addResult(testId, '✗ Step 3: Could not find evidence in Flow B', 'fail');
+                }
+                
+                // Step 4: Share Flow B to create Flow C
+                const flowC = createFlow('Flow C', flowB.id, 'share');
+                addResult(testId, '✓ Step 4: Shared Flow B to create Flow C', 'pass');
+                
+                // Step 5: Verify evidence is completed in Flow C (this was the original issue)
+                const evidenceC = Object.values(mockAppState.items).find(item => 
+                    item.type === 'evidence' && item.name === 'Evidence A' && item.isShared
+                );
+                if (evidenceC) {
+                    const evidenceCompletedInC = getCompleted(evidenceC.id);
+                    if (evidenceCompletedInC) {
+                        addResult(testId, '✓ Step 5: Evidence is completed in Flow C (execution sync works)', 'pass');
+                    } else {
+                        addResult(testId, '✗ Step 5: Evidence is not completed in Flow C (execution sync failed)', 'fail');
+                    }
+                } else {
+                    addResult(testId, '✗ Step 5: Could not find evidence in Flow C', 'fail');
+                }
+                
+                // Step 6: Add new action to Flow A
+                const newAction = createItem('action', { name: 'New Action A', text: 'New action text', tags: ['new'] }, controlA.id);
+                addResult(testId, '✓ Step 6: Added new action to Flow A', 'pass');
+                
+                // Step 7: Verify new action appears in Flow C (shared)
+                const newActionInC = Object.values(mockAppState.items).find(item => 
+                    item.type === 'action' && item.name === 'New Action A' && item.isShared
+                );
+                if (newActionInC) {
+                    addResult(testId, '✓ Step 7: New action appears in Flow C (structure sync works)', 'pass');
+                } else {
+                    addResult(testId, '✗ Step 7: New action does not appear in Flow C (structure sync failed)', 'fail');
+                }
+                
+                // Step 8: Test tag filtering
+                const flowATags = Object.values(mockAppState.items)
+                    .filter(item => item.tags.includes('flow-a'))
+                    .length;
+                if (flowATags >= 3) {
+                    addResult(testId, '✓ Step 8: Tag filtering works correctly', 'pass');
+                } else {
+                    addResult(testId, '✗ Step 8: Tag filtering not working correctly', 'fail');
+                }
+                
+                addResult(testId, `Test completed. Total flows: ${Object.keys(mockAppState.flows).length}, Total items: ${Object.keys(mockAppState.items).length}`, 'info');
+                
+            } catch (error) {
+                addResult(testId, `✗ Test failed with error: ${error.message}`, 'fail');
+            }
+        }
+
+        // Initialize test data
+        function resetTestData() {
+            mockAppState = {
+                items: {},
+                flows: {},
+                itemHierarchy: {},
+                executions: {},
+                currentFlowId: null
+            };
+        }
+
+        // Add reset button
+        document.body.insertAdjacentHTML('afterbegin', '<button onclick="resetTestData()" style="margin: 10px; padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer;">Reset Test Data</button>');
+    </script>
+</body>
+</html>

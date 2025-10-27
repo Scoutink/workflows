@@ -237,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (preservedFooter) node.footer = preservedFooter;
         });
     };
+    
     const propagateSharedDelete = (shareKey, level) => {
         appState.workflow.flows.forEach(flow => {
             if (level === 'control') {
@@ -278,9 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sharedParent.subcategories.push(newElementCopy);
             }
         });
-        
-        // Also propagate to the distribute modal for manual distribution
-        // This ensures the new element can be distributed to other flows if needed
     };
 
     // --- SERVER IO ---
@@ -404,14 +402,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const chips = node.tags.map((t, i) => {
             const actionName = appState.currentMode === 'execution' ? 'filter-by-tag' : 'edit-tag';
             const suffix = appState.currentMode === 'creation'
-                ? ` <button class="tag-delete" data-action="delete-tag" data-path="${path}" data-index="${i}" title="Remove tag">&times;</button>`
+                ? ` <button class=\"tag-delete\" data-action=\"delete-tag\" data-path=\"${path}\" data-index=\"${i}\" title=\"Remove tag\">&times;</button>`
                 : '';
-            return `<span class="tag-item" data-action="${actionName}" data-path="${path}" data-index="${i}" data-tag="${t}">#${t}${suffix}</span>`;
+            return `<span class=\"tag-item\" data-action=\"${actionName}\" data-path=\"${path}\" data-index=\"${i}\" data-tag=\"${t}\">#${t}${suffix}</span>`;
         }).join('');
         const addInput = appState.currentMode === 'creation'
-            ? `<input class="add-tag-input" data-path="${path}" placeholder="Add tag and press Enter">`
+            ? `<div class=\"tag-input-container\">
+                <input class=\"add-tag-input\" data-path=\"${path}\" placeholder=\"Add tag and press Enter\" list=\"tag-suggestions-${path.replace(/\./g, '-')}\">
+                <datalist id=\"tag-suggestions-${path.replace(/\./g, '-')}\"></datalist>
+               </div>`
             : '';
-        return `<div class="evidence-tags">${chips}${addInput}</div>`;
+        return `<div class=\"evidence-tags\">${chips}${addInput}</div>`;
     };
 
     // --- FILTERING (per-flow, with downward inheritance and original path preservation) ---

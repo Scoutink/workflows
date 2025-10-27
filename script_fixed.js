@@ -158,17 +158,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializeSharedExecutionFromSource = (newFlowId, srcFlowId) => {
         const newFlow = appState.workflow.flows.find(f => f.id === newFlowId);
         const srcExec = ensureExecFlow(srcFlowId);
+        
+        // Create a map of shareKey to execution status from source flow
+        const shareKeyToExecutionStatus = new Map();
+        const srcFlow = appState.workflow.flows.find(f => f.id === srcFlowId);
+        (srcFlow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+            if (ev.shareKey && typeof srcExec.completed[ev.id] === 'boolean') {
+                shareKeyToExecutionStatus.set(ev.shareKey, srcExec.completed[ev.id]);
+            }
+        })));
+        
+        // Apply the execution status to the new flow based on shareKey
         (newFlow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
-            if (ev.shareKey) {
-                // find any evidence with same shareKey in src flow
-                const srcFlow = appState.workflow.flows.find(f => f.id === srcFlowId);
-                let srcEv = null;
-                (srcFlow.data || []).forEach(c => (c.subcategories || []).forEach(a => (a.subcategories || []).forEach(evv => {
-                    if (evv.shareKey === ev.shareKey) srcEv = evv;
-                })));
-                if (srcEv && typeof srcExec.completed[srcEv.id] === 'boolean') {
-                    setCompleted(newFlowId, ev.id, srcExec.completed[srcEv.id]);
-                }
+            if (ev.shareKey && shareKeyToExecutionStatus.has(ev.shareKey)) {
+                setCompleted(newFlowId, ev.id, shareKeyToExecutionStatus.get(ev.shareKey));
             }
         })));
     };
@@ -281,6 +284,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    // Synchronize execution data for shared items across all flows
+    const synchronizeSharedExecutionData = () => {
+        // Create a map of shareKey to the most recent execution status
+        const shareKeyToExecutionStatus = new Map();
+        
+        // First pass: collect all execution statuses by shareKey
+        appState.workflow.flows.forEach(flow => {
+            const exec = ensureExecFlow(flow.id);
+            (flow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+                if (ev.shareKey && typeof exec.completed[ev.id] === 'boolean') {
+                    // If we already have a status for this shareKey, keep the most recent one (true takes precedence)
+                    if (!shareKeyToExecutionStatus.has(ev.shareKey) || exec.completed[ev.id] === true) {
+                        shareKeyToExecutionStatus.set(ev.shareKey, exec.completed[ev.id]);
+                    }
+                }
+            })));
+        });
+        
+        // Second pass: apply the synchronized status to all evidence items with the same shareKey
+        appState.workflow.flows.forEach(flow => {
+            const exec = ensureExecFlow(flow.id);
+            (flow.data || []).forEach(ctl => (ctl.subcategories || []).forEach(act => (act.subcategories || []).forEach(ev => {
+                if (ev.shareKey && shareKeyToExecutionStatus.has(ev.shareKey)) {
+                    exec.completed[ev.id] = shareKeyToExecutionStatus.get(ev.shareKey);
+                }
+            })));
+        });
+    };
+
     // --- SERVER IO ---
     async function loadAll() {
         try {
@@ -314,6 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!appState.currentFlowId || !getCurrentFlow()) {
                 appState.currentFlowId = appState.workflow.flows[0]?.id || null;
             }
+
+            // Synchronize execution data for shared items across all flows
+            synchronizeSharedExecutionData();
 
             initializeState();
         } catch (e) {
@@ -349,6 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
         btn.disabled = true;
         try {
+            // Synchronize execution data before saving
+            synchronizeSharedExecutionData();
+            
             const res = await fetch('save_executions.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

@@ -709,40 +709,80 @@ document.addEventListener('DOMContentLoaded', () => {
             const ctlPath = `${basePath}.${ci}`;
 
             if (nodeHasTag(control, tag)) {
-                const fullActions = (control.subcategories || []).map((act, ai) =>
-                    copyActionWithAllEvidencePaths(act, `${ctlPath}.subcategories.${ai}`));
+                // Control matches tag, include all its actions and evidence
+                const controlHierarchy = appState.itemHierarchy[control.id];
+                const fullActions = controlHierarchy ? controlHierarchy.childRefs.map((actionId, ai) => {
+                    const action = getItem(actionId);
+                    const actionHierarchy = appState.itemHierarchy[actionId];
+                    const evidenceItems = actionHierarchy ? actionHierarchy.childRefs.map(evidenceId => getItem(evidenceId)) : [];
+                    return copyActionWithAllEvidencePaths(action, `${ctlPath}.subcategories.${ai}`, evidenceItems);
+                }) : [];
                 filteredControls.push({ ...control, _path: ctlPath, subcategories: fullActions });
                 return;
             }
+            
+            // Check actions and evidence
             const keptActions = [];
-            (control.subcategories || []).forEach((act, ai) => {
-                const actPath = `${ctlPath}.subcategories.${ai}`;
-                if (nodeHasTag(act, tag)) {
-                    keptActions.push(copyActionWithAllEvidencePaths(act, actPath));
-                    return;
-                }
-                const keptEvidence = [];
-                (act.subcategories || []).forEach((ev, ei) => {
-                    const evPath = `${actPath}.subcategories.${ei}`;
-                    if (nodeHasTag(ev, tag)) keptEvidence.push({ ...ev, _path: evPath });
+            const controlHierarchy = appState.itemHierarchy[control.id];
+            if (controlHierarchy) {
+                controlHierarchy.childRefs.forEach((actionId, ai) => {
+                    const action = getItem(actionId);
+                    const actPath = `${ctlPath}.subcategories.${ai}`;
+                    
+                    if (nodeHasTag(action, tag)) {
+                        // Action matches tag, include all its evidence
+                        const actionHierarchy = appState.itemHierarchy[actionId];
+                        const evidenceItems = actionHierarchy ? actionHierarchy.childRefs.map(evidenceId => getItem(evidenceId)) : [];
+                        keptActions.push(copyActionWithAllEvidencePaths(action, actPath, evidenceItems));
+                        return;
+                    }
+                    
+                    // Check evidence
+                    const keptEvidence = [];
+                    const actionHierarchy = appState.itemHierarchy[actionId];
+                    if (actionHierarchy) {
+                        actionHierarchy.childRefs.forEach((evidenceId, ei) => {
+                            const evidence = getItem(evidenceId);
+                            const evPath = `${actPath}.subcategories.${ei}`;
+                            if (nodeHasTag(evidence, tag)) {
+                                keptEvidence.push({ ...evidence, _path: evPath });
+                            }
+                        });
+                    }
+                    
+                    if (keptEvidence.length > 0) {
+                        keptActions.push({ ...action, _path: actPath, subcategories: keptEvidence });
+                    }
                 });
-                if (keptEvidence.length > 0) {
-                    keptActions.push({ ...act, _path: actPath, subcategories: keptEvidence });
-                }
-            });
-            if (keptActions.length > 0) filteredControls.push({ ...control, _path: ctlPath, subcategories: keptActions });
+            }
+            
+            if (keptActions.length > 0) {
+                filteredControls.push({ ...control, _path: ctlPath, subcategories: keptActions });
+            }
         });
         return filteredControls;
     }
 
-    function copyActionWithAllEvidencePaths(action, actPath) {
+    function copyActionWithAllEvidencePaths(action, actPath, evidenceItems = null) {
+        // If evidenceItems is provided, use it; otherwise get from hierarchy
+        let evidenceSubcategories = [];
+        if (evidenceItems) {
+            evidenceSubcategories = evidenceItems.map((ev, ei) => ({
+                ...ev,
+                _path: `${actPath}.subcategories.${ei}`
+            }));
+        } else {
+            // Fallback to old method for compatibility
+            evidenceSubcategories = (action.subcategories || []).map((ev, ei) => ({
+                ...ev,
+                _path: `${actPath}.subcategories.${ei}`
+            }));
+        }
+        
         return {
             ...action,
             _path: actPath,
-            subcategories: (action.subcategories || []).map((ev, ei) => ({
-                ...ev,
-                _path: `${actPath}.subcategories.${ei}`
-            }))
+            subcategories: evidenceSubcategories
         };
     }
 

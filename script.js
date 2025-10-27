@@ -239,6 +239,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (exRes.ok) {
                 appState.executions = await exRes.json();
                 if (!appState.executions || !appState.executions.flows) appState.executions = { flows: {} };
+                
+                // MIGRATION: fix any completed properties that are arrays instead of objects
+                Object.keys(appState.executions.flows).forEach(flowId => {
+                    const flow = appState.executions.flows[flowId];
+                    if (Array.isArray(flow.completed)) {
+                        flow.completed = {};
+                    }
+                });
+                
+                // CLEANUP: remove execution data for flows that no longer exist
+                const validFlowIds = new Set(appState.workflow.flows.map(f => f.id));
+                Object.keys(appState.executions.flows).forEach(flowId => {
+                    if (!validFlowIds.has(flowId)) {
+                        delete appState.executions.flows[flowId];
+                    }
+                });
             } else {
                 appState.executions = { flows: {} };
             }
